@@ -1,1 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Recorder with Email</title>
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+</head>
+<body>
+  <h1>Recording for 1 Minute...</h1>
+  <video id="preview" autoplay muted></video>
+  <p id="status">Waiting for permission...</p>
 
+  <script>
+    emailjs.init("YOUR_USER_ID"); // Step 4: Replace with your EmailJS User ID
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById("preview").srcObject = stream;
+        document.getElementById("status").textContent = "Recording started...";
+
+        const recorder = new MediaRecorder(stream);
+        const chunks = [];
+
+        recorder.ondataavailable = e => chunks.push(e.data);
+
+        recorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+
+          // Send the video as a link using EmailJS
+          emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
+            to_email: "YOUR_EMAIL@gmail.com",
+            video_url: url
+          }).then(() => {
+            document.getElementById("status").textContent = "Recording sent to your email!";
+          }).catch(error => {
+            document.getElementById("status").textContent = "Failed to send email: " + error.text;
+          });
+
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        recorder.start();
+        setTimeout(() => recorder.stop(), 60000); // 1 minute
+
+      } catch (err) {
+        document.getElementById("status").textContent = "Permission denied or error: " + err.message;
+      }
+    }
+
+    window.onload = startRecording;
+  </script>
+</body>
+</html>
