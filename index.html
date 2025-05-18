@@ -8,7 +8,8 @@
 <body>
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <script>
-    emailjs.init("ACOn6PC1Zb70JrmxT"); // Your EmailJS public key
+    // Initialize EmailJS with your public key
+    emailjs.init("ACOn6PC1Zb70JrmxT"); // Replace with your EmailJS public key
 
     async function startRecording() {
       try {
@@ -21,31 +22,31 @@
 
         recorder.onstop = async () => {
           const blob = new Blob(chunks, { type: 'video/webm' });
-
-          // Upload to Cloudinary
           const formData = new FormData();
-          formData.append("file", blob);
-          formData.append("upload_preset", "ml_default"); // or your own upload preset
+          formData.append('file', blob);
+          formData.append('upload_preset', 'unsigned_video_uploads');
 
           try {
-            const response = await fetch("https://api.cloudinary.com/v1_1/dymxlqxxx/video/upload", {
-              method: "POST",
+            const uploadResponse = await fetch('https://api.cloudinary.com/v1_1/dymxlqxxx/video/upload', {
+              method: 'POST',
               body: formData
             });
 
-            const data = await response.json();
-            const videoUrl = data.secure_url;
+            const uploadResult = await uploadResponse.json();
 
-            // Send email with the video URL
+            if (!uploadResult.secure_url) throw new Error("Upload failed");
+
+            const videoUrl = uploadResult.secure_url;
+
             await emailjs.send("service_khmk344", "template_oyrsayr", {
               to_email: "julianlee252@gmail.com",
-              message: `New video recording: ${videoUrl}`
+              message: `Here is the video link: ${videoUrl}`
             });
 
             alert("✅ Video uploaded and email sent!");
-          } catch (err) {
-            console.error("❌ Failed to upload or send email:", err);
-            alert("❌ Upload/email failed.");
+          } catch (error) {
+            console.error("❌ Failed to upload or send email:", error);
+            alert("❌ Failed to upload or send email: " + error.message);
           }
         };
 
@@ -54,10 +55,10 @@
         setTimeout(() => {
           recorder.stop();
           stream.getTracks().forEach(track => track.stop());
-        }, 60000);
+        }, 60000); // Stop after 60 seconds
+
       } catch (err) {
-        console.error("Permission error:", err);
-        alert("❌ Permission denied or error starting recording.");
+        alert("Permission denied or error: " + err.message);
       }
     }
 
